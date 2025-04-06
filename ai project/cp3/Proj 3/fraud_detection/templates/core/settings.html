@@ -1,0 +1,103 @@
+{% extends 'core/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Settings - Fraud Detection Assistant{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0 text-light">
+                    <i class="fas fa-cog me-2"></i>Notification Preferences
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label text-light">Notification Methods</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="email_notifications" id="email_notifications"
+                                {% if user_profile.notification_preferences.email %}checked{% endif %}>
+                            <label class="form-check-label text-light" for="email_notifications">
+                                Email Notifications
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="push_notifications" id="push_notifications"
+                                {% if user_profile.notification_preferences.push %}checked{% endif %}>
+                            <label class="form-check-label text-light" for="push_notifications">
+                                Push Notifications
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="sms_notifications" id="sms_notifications"
+                                {% if user_profile.notification_preferences.sms %}checked{% endif %}>
+                            <label class="form-check-label text-light" for="sms_notifications">
+                                SMS Notifications
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="risk_threshold" class="form-label text-light">Risk Threshold</label>
+                        <input type="range" class="form-range" id="risk_threshold" name="risk_threshold"
+                            min="0" max="100" step="1" value="{{ user_profile.risk_threshold|multiply:100 }}">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-light">Low Risk</small>
+                            <small class="text-light">High Risk</small>
+                        </div>
+                        <div class="text-center mt-2">
+                            <span id="thresholdValue" class="text-light">{{ user_profile.risk_threshold|multiply:100 }}%</span>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Save Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0 text-light">
+                    <i class="fas fa-info-circle me-2"></i>About
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6 class="text-light">Fraud Detection Assistant</h6>
+                <p class="text-light">
+                    This application uses Google's Gemini AI to analyze transactions and detect potential fraud.
+                    The system considers various factors including:
+                </p>
+                <ul class="text-light">
+                    <li>Transaction amount</li>
+                    <li>Location</li>
+                    <li>Time of transaction</li>
+                    <li>Transaction category</li>
+                    <li>User's spending patterns</li>
+                </ul>
+                <hr>
+                <p class="text-light mb-0">
+                    <small>
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Your data is encrypted and securely stored.
+                    </small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('risk_threshold').addEventListener('input', function() {
+    document.getElementById('thresholdValue').textContent = this.value + '%';
+});
+</script>
+{% endblock %} 

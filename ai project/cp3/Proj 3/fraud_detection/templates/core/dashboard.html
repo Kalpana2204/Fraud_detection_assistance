@@ -1,0 +1,242 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Dashboard - Fraud Detection Assistant{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0 text-light">
+                    <i class="fas fa-search me-2"></i>Analyze Transaction
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="transactionForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="amount" class="form-label text-light">Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark text-light border-secondary">$</span>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label text-light">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="location" class="form-label text-light">Location</label>
+                        <input type="text" class="form-control" id="location" name="location">
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label text-light">Category</label>
+                        <select class="form-select" id="category" name="category">
+                            <option value="">Select a category</option>
+                            <option value="shopping">Shopping</option>
+                            <option value="food">Food & Dining</option>
+                            <option value="transportation">Transportation</option>
+                            <option value="entertainment">Entertainment</option>
+                            <option value="utilities">Utilities</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>Analyze Transaction
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0 text-light">
+                    <i class="fas fa-chart-line me-2"></i>Analysis Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="analysisResult" class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Submit a transaction for analysis</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card bg-dark">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0 text-light">
+            <i class="fas fa-history me-2"></i>Recent Transactions
+        </h5>
+        <span class="badge bg-primary">Last 10 Transactions</span>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-dark">
+                <thead>
+                    <tr>
+                        <th class="text-light">Date</th>
+                        <th class="text-light">Amount</th>
+                        <th class="text-light">Description</th>
+                        <th class="text-light">Category</th>
+                        <th class="text-light">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr>
+                        <td class="text-light">{{ transaction.timestamp|date:"M d, Y H:i" }}</td>
+                        <td class="text-light">${{ transaction.amount }}</td>
+                        <td class="text-light">{{ transaction.description }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ transaction.category|default:"-" }}</span>
+                        </td>
+                        <td>
+                            {% if transaction.is_suspicious %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Suspicious
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle me-1"></i>Normal
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-light mb-3"></i>
+                            <p class="text-light mb-0">No transactions yet</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    function updateTransactionsTable() {
+        $.ajax({
+            url: '{% url "dashboard" %}',
+            type: 'GET',
+            success: function(response) {
+                // Extract the transactions table from the response
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(response, 'text/html');
+                const newTable = doc.querySelector('.table-responsive');
+                
+                // Update the transactions table
+                $('.table-responsive').html(newTable.innerHTML);
+            }
+        });
+    }
+
+    $('#transactionForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Show loading animation
+        $('#analysisResult').html(`
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-light">Analyzing transaction...</p>
+            </div>
+        `);
+        
+        const formData = new FormData(this);
+        
+        $.ajax({
+            url: '{% url "analyze_transaction" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                let resultHtml = '';
+                if (response.is_suspicious) {
+                    resultHtml = `
+                        <div class="alert alert-danger">
+                            <h4 class="alert-heading text-light">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Suspicious Transaction Detected!
+                            </h4>
+                            <p class="mb-0 text-light">${response.explanation}</p>
+                        </div>
+                        <div class="mt-3">
+                            <div class="progress mb-2" style="height: 25px;">
+                                <div class="progress-bar bg-danger" role="progressbar" 
+                                     style="width: ${response.risk_score * 100}%">
+                                    ${(response.risk_score * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                            <p class="text-light mb-0">Risk Score: High Risk</p>
+                        </div>
+                        <div class="mt-3">
+                            <h5 class="text-light">Recommendations:</h5>
+                            <ul class="text-light">
+                                <li>Review the transaction details carefully</li>
+                                <li>Contact your bank if you didn't make this transaction</li>
+                                <li>Consider changing your payment method</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    resultHtml = `
+                        <div class="alert alert-success">
+                            <h4 class="alert-heading text-light">
+                                <i class="fas fa-check-circle me-2"></i>Transaction Analysis Complete
+                            </h4>
+                            <p class="mb-0 text-light">${response.explanation}</p>
+                        </div>
+                        <div class="mt-3">
+                            <div class="progress mb-2" style="height: 25px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: ${response.risk_score * 100}%">
+                                    ${(response.risk_score * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                            <p class="text-light mb-0">Risk Score: Low Risk</p>
+                        </div>
+                        <div class="mt-3">
+                            <h5 class="text-light">Transaction Details:</h5>
+                            <ul class="text-light">
+                                <li>Amount: $${formData.get('amount')}</li>
+                                <li>Category: ${formData.get('category') || 'Not specified'}</li>
+                                <li>Location: ${formData.get('location') || 'Not specified'}</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+                $('#analysisResult').html(resultHtml);
+                
+                // Update the transactions table
+                updateTransactionsTable();
+            },
+            error: function(xhr) {
+                let errorMessage = 'An error occurred while analyzing the transaction. Please try again.';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                $('#analysisResult').html(`
+                    <div class="alert alert-danger">
+                        <h4 class="alert-heading text-light">
+                            <i class="fas fa-exclamation-circle me-2"></i>Error
+                        </h4>
+                        <p class="mb-0 text-light">${errorMessage}</p>
+                    </div>
+                `);
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 
